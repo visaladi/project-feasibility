@@ -1,6 +1,5 @@
-from typing import List, Tuple
+from typing import List
 from .schemas import ProjectInput, EvaluationResult, RecommendedTechStack
-import math
 
 
 def clamp(value: float, low: float, high: float) -> float:
@@ -8,10 +7,15 @@ def clamp(value: float, low: float, high: float) -> float:
 
 
 def _keyword_found(text: str, keywords: List[str]) -> bool:
+    """Return True if any of the given keywords appears in the text."""
     return any(k in text for k in keywords)
 
 
 def _count_matches(text: str, keyword_groups: List[List[str]]) -> int:
+    """
+    Count how many groups have at least one keyword present in the text.
+    Each group is a list of strings.
+    """
     count = 0
     for group in keyword_groups:
         if _keyword_found(text, group):
@@ -22,32 +26,35 @@ def _count_matches(text: str, keyword_groups: List[List[str]]) -> int:
 def evaluate_project(project: ProjectInput) -> EvaluationResult:
     text = (project.title + " " + project.description + " " + " ".join(project.tech_tags)).lower()
 
-    # --- 1. Detect dimensions based on keywords ---
-    ml_keywords = [["machine learning", "ml"], ["deep learning", "neural network", "cnn", "transformer"]]
-    cv_keywords = [["computer vision", "image processing", "opencv"]]
-    nlp_keywords = [["nlp", "natural language", "bert", "gpt", "sentiment"]]
-    data_stream_keywords = [["real-time", "streaming", "kafka", "spark", "flink"]]
-    blockchain_keywords = [["blockchain", "smart contract", "solana", "ethereum", "web3"]]
-    iot_keywords = [["iot", "sensor", "arduino", "raspberry pi", "microcontroller", "edge device"]]
-    mobile_keywords = [["android", "ios", "react native", "flutter", "mobile app"]]
-    web_keywords = [["web app", "react", "angular", "vue", "frontend", "dashboard"]]
-    security_keywords = [["encryption", "cybersecurity", "penetration testing", "auth", "authorization"]]
-    optimization_keywords = [["optimization", "heuristic", "metaheuristic", "genetic algorithm"]]
+    # --- 1. Keyword groups (FLATTENED!) ---
 
-    nonfunctional_keywords = [
+    # Each of these is now List[str], not List[List[str]]
+    ml_keywords = ["machine learning", "ml", "supervised", "unsupervised"]
+    dl_keywords = ["deep learning", "neural network", "cnn", "rnn", "lstm", "transformer"]
+    cv_keywords = ["computer vision", "image processing", "opencv"]
+    nlp_keywords = ["nlp", "natural language", "bert", "gpt", "sentiment"]
+    data_stream_keywords = ["real-time", "streaming", "kafka", "spark", "flink"]
+    blockchain_keywords = ["blockchain", "smart contract", "solana", "ethereum", "web3"]
+    iot_keywords = ["iot", "sensor", "arduino", "raspberry pi", "microcontroller", "edge device"]
+    mobile_keywords = ["android", "ios", "react native", "flutter", "mobile app"]
+    web_keywords = ["web app", "react", "angular", "vue", "frontend", "dashboard", "portal"]
+    security_keywords = ["encryption", "cybersecurity", "penetration testing", "auth", "authorization"]
+    optimization_keywords = ["optimization", "heuristic", "metaheuristic", "genetic algorithm"]
+
+    nonfunctional_keywords_groups = [
         ["real-time", "low latency", "high throughput"],
         ["high availability", "fault tolerant", "failover"],
-        ["scalable", "scalability", "distributed system"],
+        ["scalable", "scalability", "distributed system", "distributed"],
     ]
 
-    data_complex_keywords = [
+    data_complex_keywords_groups = [
         ["big data", "large-scale", "millions of", "billions of"],
         ["time series", "multivariate", "high dimensional"],
         ["unstructured data", "logs", "images", "video", "audio"],
     ]
 
-    integration_keywords = [
-        ["api integration", "third-party api"],
+    integration_keywords_groups = [
+        ["api integration", "third-party api", "external api"],
         ["payment gateway", "stripe", "paypal"],
         ["external service", "webhook"],
     ]
@@ -55,6 +62,7 @@ def evaluate_project(project: ProjectInput) -> EvaluationResult:
     # Technical breadth: how many distinct domains are involved
     breadth_domains = [
         ml_keywords,
+        dl_keywords,
         cv_keywords,
         nlp_keywords,
         data_stream_keywords,
@@ -65,39 +73,43 @@ def evaluate_project(project: ProjectInput) -> EvaluationResult:
         security_keywords,
         optimization_keywords,
     ]
+
     technical_breadth = _count_matches(text, breadth_domains)
     technical_breadth = clamp(technical_breadth, 0, 10)
 
-    # Technical depth
+    # --- 2. Technical depth ---
+
     depth_score = 0.0
-    if _keyword_found(text, ["deep learning", "transformer", "neural network", "cnn", "rnn", "lstm"]):
+    if _keyword_found(text, dl_keywords):
         depth_score += 3
-    if _keyword_found(text, ["distributed system", "kafka", "spark", "flink"]):
+    if _keyword_found(text, data_stream_keywords):
         depth_score += 2
-    if _keyword_found(text, ["blockchain", "smart contract", "consensus"]):
+    if _keyword_found(text, blockchain_keywords + ["consensus"]):
         depth_score += 2
-    if _keyword_found(text, ["optimization", "genetic algorithm", "simulated annealing"]):
+    if _keyword_found(text, optimization_keywords):
         depth_score += 2
     if _keyword_found(text, ["real-time", "low latency"]):
         depth_score += 1
 
-    # baseline depth if any ML / advanced topic appears
+    # baseline depth if some domains but no advanced keywords
     if technical_breadth > 0 and depth_score == 0:
         depth_score = 2
 
     depth_score = clamp(depth_score, 0, 10)
 
-    # Non-functional complexity
+    # --- 3. Non-functional complexity ---
+
     nonfunctional_complexity = 0.0
     if _keyword_found(text, ["real-time", "low latency", "high throughput"]):
         nonfunctional_complexity += 3
-    if _keyword_found(text, ["scalable", "scalability", "distributed"]):
+    if _keyword_found(text, ["scalable", "scalability", "distributed", "distributed system"]):
         nonfunctional_complexity += 2
     if _keyword_found(text, ["high availability", "fault tolerant", "failover"]):
         nonfunctional_complexity += 2
     nonfunctional_complexity = clamp(nonfunctional_complexity, 0, 10)
 
-    # Data complexity
+    # --- 4. Data complexity ---
+
     data_complexity = 0.0
     if _keyword_found(text, ["big data", "large-scale"]):
         data_complexity += 3
@@ -107,17 +119,19 @@ def evaluate_project(project: ProjectInput) -> EvaluationResult:
         data_complexity += 2
     data_complexity = clamp(data_complexity, 0, 10)
 
-    # Integration complexity
+    # --- 5. Integration complexity ---
+
     integration_complexity = 0.0
     if _keyword_found(text, ["api integration", "third-party api", "webhook"]):
         integration_complexity += 2
     if _keyword_found(text, ["payment", "stripe", "paypal"]):
         integration_complexity += 2
-    if _keyword_found(text, ["iot", "sensor", "arduino", "raspberry pi"]):
+    if _keyword_found(text, iot_keywords):
         integration_complexity += 2
     integration_complexity = clamp(integration_complexity, 0, 10)
 
-    # Novelty / real-world relevance (very rough)
+    # --- 6. Novelty / real-world relevance (rough heuristic) ---
+
     novelty_score = 5.0
     if _keyword_found(text, ["smart city", "healthcare", "education", "finance", "agriculture"]):
         novelty_score += 1
@@ -125,7 +139,8 @@ def evaluate_project(project: ProjectInput) -> EvaluationResult:
         novelty_score += 1
     novelty_score = clamp(novelty_score, 0, 10)
 
-    # --- 2. Difficulty score ---
+    # --- 7. Difficulty score ---
+
     difficulty_score = (
         0.35 * technical_breadth
         + 0.35 * depth_score
@@ -134,21 +149,18 @@ def evaluate_project(project: ProjectInput) -> EvaluationResult:
     )
     difficulty_score = clamp(difficulty_score, 0, 10)
 
-    # --- 3. Feasibility score ---
-    # start from inverse of difficulty
+    # --- 8. Feasibility score ---
+
     feasibility_score = 10 - max(0.0, difficulty_score - 4) * 1.2
 
-    # team & time heuristics
     months = project.duration_weeks / 4.0
     team = project.team_size
 
-    # penalize if high difficulty but small team
     if difficulty_score > 7 and team <= 2:
         feasibility_score -= 2.0
     if difficulty_score > 8 and team == 1:
         feasibility_score -= 2.0
 
-    # penalize if high difficulty but short duration
     if difficulty_score > 7 and months < 4:
         feasibility_score -= 2.0
     if difficulty_score > 6 and months < 3:
@@ -156,13 +168,14 @@ def evaluate_project(project: ProjectInput) -> EvaluationResult:
 
     feasibility_score = clamp(feasibility_score, 0, 10)
 
-    # --- 4. Marks potential ---
+    # --- 9. Marks potential (/100) ---
+
     marks_potential = 40 + difficulty_score * 4 + novelty_score * 2
-    # slight bonus if feasibility is ok (so it's doable)
     marks_potential += (feasibility_score - 5) * 1.5
     marks_potential = clamp(marks_potential, 0, 100)
 
-    # --- 5. Labels ---
+    # --- 10. Labels ---
+
     if difficulty_score < 3:
         difficulty_label = "Too Easy"
     elif difficulty_score < 6:
@@ -179,12 +192,12 @@ def evaluate_project(project: ProjectInput) -> EvaluationResult:
     else:
         feasibility_label = "Good Feasibility"
 
-    # --- 6. Recommended tech stack ---
-    frontend = []
-    backend = []
+    # --- 11. Recommended tech stack ---
+
+    frontend: List[str] = []
+    backend: List[str] = []
     database = ["PostgreSQL"]
 
-    #frontend
     if _keyword_found(text, ["web", "dashboard", "portal", "web app"]):
         frontend.append("React")
     if _keyword_found(text, ["mobile", "android", "ios"]):
@@ -192,20 +205,17 @@ def evaluate_project(project: ProjectInput) -> EvaluationResult:
     if not frontend:
         frontend.append("React")
 
-    # backend
-    if _keyword_found(text, ["real-time", "kafka", "streaming"]):
+    if _keyword_found(text, data_stream_keywords):
         backend.append("FastAPI or Node.js (Express) + Kafka")
     else:
         backend.append("FastAPI or Node.js (Express)")
 
-    # ML stack
     ml_stack = None
-    if _keyword_found(text, ["ml", "machine learning", "deep learning", "nlp", "computer vision"]):
+    if _keyword_found(text, ml_keywords + dl_keywords + cv_keywords + nlp_keywords):
         ml_stack = ["Python", "PyTorch / TensorFlow", "scikit-learn"]
 
-    # Blockchain stack
     blockchain_stack = None
-    if _keyword_found(text, ["blockchain", "solana", "ethereum", "smart contract"]):
+    if _keyword_found(text, blockchain_keywords):
         blockchain_stack = ["Solidity / Rust", "Web3.js / ethers.js"]
 
     devops = ["Docker"]
@@ -221,10 +231,10 @@ def evaluate_project(project: ProjectInput) -> EvaluationResult:
         devops=devops,
     )
 
-    # --- 7. Suggestions ---
+    # --- 12. Suggestions ---
+
     suggestions: List[str] = []
 
-    # Easy → add depth
     if difficulty_score < 3:
         suggestions.append(
             "The project looks quite simple. Consider adding an analytics dashboard, performance evaluation, or an AI/ML component to increase depth."
@@ -235,13 +245,11 @@ def evaluate_project(project: ProjectInput) -> EvaluationResult:
             "Difficulty is reasonable. You can strengthen the project by clearly defining evaluation metrics and including a small performance or usability study."
         )
 
-    # Too hard → cut scope
     if difficulty_score > 8:
         suggestions.append(
             "The project is very challenging. Consider removing one advanced component (e.g., deep learning, blockchain, or real-time streaming) and focusing on a core subset."
         )
 
-    # Time / team warnings
     if feasibility_score < 5:
         suggestions.append(
             f"For a team of {team} over {round(months, 1)} months, this scope is risky. Start with a minimal prototype (Phase 1) and only add advanced features if time permits."

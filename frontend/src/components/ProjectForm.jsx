@@ -102,7 +102,8 @@ export default function ProjectForm({ onSubmit, loading }) {
             {degreeOptions.map((opt) => (
               <option key={opt} value={opt}>
                 {opt}
-              ))}
+              </option>
+            ))}
           </select>
         </div>
 
@@ -124,7 +125,8 @@ export default function ProjectForm({ onSubmit, loading }) {
             {courseOptions.map((opt) => (
               <option key={opt} value={opt}>
                 {opt}
-              ))}
+              </option>
+            ))}
           </select>
         </div>
       </div>
@@ -200,8 +202,7 @@ export default function ProjectForm({ onSubmit, loading }) {
           padding: "0.7rem 1rem",
           borderRadius: "999px",
           border: "none",
-          background:
-            "linear-gradient(135deg, #22c55e, #22d3ee)",
+          background: "linear-gradient(135deg, #22c55e, #22d3ee)",
           color: "#020617",
           fontWeight: 600,
           cursor: loading ? "not-allowed" : "pointer",
