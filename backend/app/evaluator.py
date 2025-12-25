@@ -184,7 +184,7 @@ def evaluate_project(project: ProjectInput) -> EvaluationResult:
     backend = []
     database = ["PostgreSQL"]
 
-    # frontend
+    #frontend
     if _keyword_found(text, ["web", "dashboard", "portal", "web app"]):
         frontend.append("React")
     if _keyword_found(text, ["mobile", "android", "ios"]):
